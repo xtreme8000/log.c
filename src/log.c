@@ -25,12 +25,13 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "log.h"
 
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+
 static struct {
-  void *udata;
-  log_LockFn lock;
   FILE *fp;
   int level;
   int quiet;
@@ -48,27 +49,13 @@ static const char *level_colors[] = {
 #endif
 
 
-static void lock(void)   {
-  if (L.lock) {
-    L.lock(L.udata, 1);
-  }
+static void lock(void) {
+    pthread_mutex_lock(&m);
 }
 
 
 static void unlock(void) {
-  if (L.lock) {
-    L.lock(L.udata, 0);
-  }
-}
-
-
-void log_set_udata(void *udata) {
-  L.udata = udata;
-}
-
-
-void log_set_lock(log_LockFn fn) {
-  L.lock = fn;
+    pthread_mutex_unlock(&m);
 }
 
 
