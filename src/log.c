@@ -30,6 +30,10 @@
 
 #include "log.h"
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 uv_mutex_t m;
 
 static struct {
@@ -43,19 +47,27 @@ static const char* level_names[] = {
 };
 
 #ifdef LOG_USE_COLOR
+#ifdef WIN32
+static const WORD level_colors[] = {
+        10, 11, 10, 6, 12, 12
+};
+#else
 static const char* level_colors[] = {
     "\x1b[94m", "\x1b[36m", "\x1b[32m", "\x1b[33m", "\x1b[31m", "\x1b[35m"
 };
 #endif
+#endif
 
 static void lock(void)
 {
+    uv_mutex_init(&m);
     uv_mutex_lock(&m);
 }
 
 static void unlock(void)
 {
     uv_mutex_unlock(&m);
+    uv_mutex_destroy(&m);
 }
 
 void log_set_fp(FILE* fp)
@@ -92,9 +104,32 @@ void log_log(int level, const char* file, int line, const char* fmt, ...)
 	char buf[16];
 	buf[strftime(buf, sizeof(buf), "%H:%M:%S", lt)] = '\0';
 #ifdef LOG_USE_COLOR
+#ifdef WIN32
+		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+		CONSOLE_SCREEN_BUFFER_INFO consoleInfo;
+		WORD saved_attributes;
+
+		GetConsoleScreenBufferInfo(hConsole, &consoleInfo);
+		saved_attributes = consoleInfo.wAttributes;
+
+		fprintf(stderr, "%s ", buf);
+		SetConsoleTextAttribute(hConsole, level_colors[level]);
+		fprintf(stderr, "%s", level_names[level]);
+
+		if (strlen(level_names[level]) == 5) {
+			fprintf(stderr, " ");
+		} else {
+			fprintf(stderr, "  ");
+		}
+		SetConsoleTextAttribute(hConsole, 8 /*GREY*/);
+		fprintf(stderr, "%s:%d: ", file, line);
+
+		SetConsoleTextAttribute(hConsole, saved_attributes);
+#else
 	fprintf(
 	    stderr, "%s %s%-5s\x1b[0m \x1b[90m%s:%d:\x1b[0m ",
 	    buf, level_colors[level], level_names[level], file, line);
+#endif
 #else
 	fprintf(stderr, "%s %-5s %s:%d: ", buf, level_names[level], file, line);
 #endif
