@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <uv.h>
 
 #include "log.h"
 
@@ -34,7 +33,7 @@
 #include <windows.h>
 #endif
 
-static uv_mutex_t m;
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 
 static struct {
     FILE* fp;
@@ -58,16 +57,12 @@ static const char* level_colors[] = {
 #endif
 #endif
 
-static void lock(void)
-{
-    uv_mutex_init(&m);
-    uv_mutex_lock(&m);
+static void lock(void)  {
+	pthread_mutex_lock(&m);
 }
 
-static void unlock(void)
-{
-    uv_mutex_unlock(&m);
-    uv_mutex_destroy(&m);
+static void unlock(void)  {
+	pthread_mutex_unlock(&m);
 }
 
 void log_set_fp(FILE* fp)
