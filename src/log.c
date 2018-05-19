@@ -34,7 +34,7 @@
 #include <windows.h>
 #endif
 
-uv_mutex_t m;
+static uv_mutex_t m;
 
 static struct {
     FILE* fp;
@@ -103,6 +103,7 @@ void log_log(int level, const char* file, int line, const char* fmt, ...)
 	va_list args;
 	char buf[16];
 	buf[strftime(buf, sizeof(buf), "%H:%M:%S", lt)] = '\0';
+
 #ifdef LOG_USE_COLOR
 #ifdef WIN32
 		HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -112,18 +113,23 @@ void log_log(int level, const char* file, int line, const char* fmt, ...)
 		GetConsoleScreenBufferInfo(hConsole, &consoleInfo);
 		saved_attributes = consoleInfo.wAttributes;
 
+		// Force set to grey for this purpose, but keep the previous colour settings and revert
+		// back to them after the logging has completed, since the user who may have changed colours
+		// for their own logging prior to log_log called
+		SetConsoleTextAttribute(hConsole, 7);
 		fprintf(stderr, "%s ", buf);
 		SetConsoleTextAttribute(hConsole, level_colors[level]);
 		fprintf(stderr, "%s", level_names[level]);
 
 		if (strlen(level_names[level]) == 5) {
-			fprintf(stderr, " ");
+		    fprintf(stderr, " ");
 		} else {
-			fprintf(stderr, "  ");
+		    fprintf(stderr, "  ");
 		}
 		SetConsoleTextAttribute(hConsole, 8 /*GREY*/);
 		fprintf(stderr, "%s:%d: ", file, line);
 
+		// Revert back colour settings
 		SetConsoleTextAttribute(hConsole, saved_attributes);
 #else
 	fprintf(
